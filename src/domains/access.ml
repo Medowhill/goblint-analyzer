@@ -113,8 +113,8 @@ let rec d_offs () : offs -> doc = function
 type acc_typ = [ `Type of CilType.Typ.t | `Struct of CilType.Compinfo.t * offs ] [@@deriving eq]
 
 let d_acct () = function
-  | `Type t -> dprintf "(%a)" d_type t
-  | `Struct (s,o) -> dprintf "(struct %s)%a" s.cname d_offs o
+  | `Type t -> dprintf "%a" d_type t
+  | `Struct (s,o) -> dprintf "%s%a" s.cname d_offs o
 
 let file_re = Str.regexp "\\(.*/\\|\\)\\([^/]*\\)"
 let d_loc () loc =
@@ -128,8 +128,8 @@ let d_loc () loc =
 
 let d_memo () (t, lv) =
   match lv with
-  | Some (v,o) -> dprintf "%s%a@@%a" v.vname d_offs o d_loc v.vdecl
-  | None       -> dprintf "%a" d_acct t
+  | Some (v,o) -> dprintf "%s:%a" v.vname d_acct t
+  | None       -> dprintf ":%a" d_acct t
 
 let rec get_type (fb: typ) : exp -> acc_typ = function
   | AddrOf (h,o) | StartOf (h,o) ->
@@ -463,23 +463,20 @@ let check_safe ls (accs,lp) prev_safe =
     let lp_start = (fun (_,_,_,_,lp) -> lp) (BatOption.get (BatEnum.peek ord_enum)) in
     (* ignore(printf "starting with lockset %a\n" LSSet.pretty lp_start); *)
     match BatEnum.fold check_accs (None, lp_start, false) (Set.backwards accs), prev_safe with
-    | (None, _,_), _ ->
+    | (None, lp,_), _ ->
       (* ignore(printf "this batch is safe\n"); *)
-      prev_safe
-    | (Some n,_,_), Some m ->
+      Some lp
+    | (Some _,_,_), _ ->
       (* ignore(printf "race with %d and %d \n" n m); *)
-      Some (max n m)
-    | (Some n,_,_), None ->
-      (* ignore(printf "race with %d\n" n); *)
-      Some n
+      None
 
 let is_all_safe () =
   let safe = ref true in
   let h ty lv ht =
     let safety = PartOptHash.fold check_safe ht None in
     match safety with
-    | None -> ()
-    | Some n -> safe := false
+    | None -> safe := false
+    | Some n -> ()
   in
   let f ty = LvalOptHash.iter (h ty) in
   TypeHash.iter f accs;
@@ -489,60 +486,35 @@ let is_all_safe () =
 (* Commenting your code is for the WEAK! *)
 let print_summary () =
   let safe       = ref 0 in
-  let vulnerable = ref 0 in
   let unsafe     = ref 0 in
   let h ty lv ht =
     (* ignore(printf "Checking safety of %a:\n" d_memo (ty,lv)); *)
     let safety = PartOptHash.fold check_safe ht None in
     match safety with
-    | None -> incr safe
-    | Some n when n >= 100 -> incr unsafe
-    | Some n -> incr vulnerable
+    | None -> incr unsafe
+    | Some _ -> incr safe
   in
   let f ty = LvalOptHash.iter (h ty) in
   TypeHash.iter f accs;
   ignore (Pretty.printf "\nSummary for all memory locations:\n");
   ignore (Pretty.printf "\tsafe:        %5d\n" !safe);
-  ignore (Pretty.printf "\tvulnerable:  %5d\n" !vulnerable);
   ignore (Pretty.printf "\tunsafe:      %5d\n" !unsafe);
   ignore (Pretty.printf "\t-------------------\n");
-  ignore (Pretty.printf "\ttotal:       %5d\n" ((!safe) + (!unsafe) + (!vulnerable)))
+  ignore (Pretty.printf "\ttotal:       %5d\n" ((!safe) + (!unsafe)))
 
 let print_accesses () =
-  let allglobs = get_bool "allglobs" in
-  let debug = get_bool "dbg.debug" in
-  let g (ls, (acs,_)) =
-    let h (conf,w,loc,e,lp) =
-      let d_ls () = match ls with
-        | None -> Pretty.text " is ok" (* None is used by add_one when access partitions set is empty (not singleton), so access is considered unracing (single-threaded or bullet region)*)
-        | Some ls when LSSet.is_empty ls -> nil
-        | Some ls -> text " in " ++ LSSet.pretty () ls
-      in
-      let atyp = if w then "write" else "read" in
-      let d_msg () = dprintf "%s%t with %a (conf. %d)" atyp d_ls LSSet.pretty lp conf in
-      let doc =
-        if debug then
-          dprintf "%t  (exp: %a)" d_msg d_exp e
-        else
-          d_msg ()
-      in
-      (doc, Some loc)
-    in
-    Set.enum acs
-    |> Enum.map h
-  in
   let h ty lv ht =
-    let msgs () =
-      PartOptHash.enum ht
-      |> Enum.concat_map g
-      |> List.of_enum
-    in
     match PartOptHash.fold check_safe ht None with
-    | None ->
-      if allglobs then
-        M.msg_group Success ~category:Race "Memory location %a (safe)" d_memo (ty,lv) (msgs ())
-    | Some n ->
-      M.msg_group Warning ~category:Race "Memory location %a (race with conf. %d)" d_memo (ty,lv) n (msgs ())
+    | Some lp ->
+      let x =
+        lp
+        |> LSSet.elements
+        |> List.filter (function (l, _) -> l <> "thread")
+        |> List.map (fun ls -> (LabeledString.pretty () ls, None))
+      in
+      if List.length x > 0 then
+        M.msg_group Info "%a" d_memo (ty, lv) x
+    | None -> ()
   in
   let f ty ht =
     LvalOptHash.iter (h ty) ht

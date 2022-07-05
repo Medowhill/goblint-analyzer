@@ -160,7 +160,7 @@ struct
       | Some l ->
         BatPrintf.fprintf f "\n<text file=\"%s\" line=\"%d\" column=\"%d\">%s</text>" l.file l.line l.column (GU.escape m)
       | None ->
-        () (* TODO: not outputting warning without location *)
+        BatPrintf.fprintf f "\n<text>%s</text>" (GU.escape m)
     in
     let one_w f (m: Messages.Message.t) = match m.multipiece with
       | Single piece  -> one_text f piece
@@ -200,17 +200,6 @@ struct
         Messages.xml_file_name := fn;
         BatPrintf.printf "Writing xml to temp. file: %s\n%!" fn;
         BatPrintf.fprintf f "<run>";
-        BatPrintf.fprintf f "<parameters>%a</parameters>" (BatArray.print ~first:"" ~last:"" ~sep:" " BatString.print) BatSys.argv;
-        BatPrintf.fprintf f "<statistics>";
-        (* FIXME: This is a super ridiculous hack we needed because BatIO has no way to get the raw channel CIL expects here. *)
-        let name, chn = Filename.open_temp_file "stat" "goblint" in
-        Stats.print chn "";
-        Stdlib.close_out chn;
-        let f_in = BatFile.open_in name in
-        let s = BatIO.read_all f_in in
-        BatIO.close_in f_in;
-        BatPrintf.fprintf f "%s" s;
-        BatPrintf.fprintf f "</statistics>";
         BatPrintf.fprintf f "<result>\n";
         BatEnum.iter (fun b -> BatPrintf.fprintf f "<file name=\"%s\" path=\"%s\">\n%a</file>\n" (Filename.basename b) b p_funs (SH.find_all file2funs b)) (BatEnum.uniq @@ SH.keys file2funs);
         BatPrintf.fprintf f "%a" printXml (Lazy.force table);
