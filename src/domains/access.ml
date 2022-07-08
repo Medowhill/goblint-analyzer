@@ -463,9 +463,9 @@ let check_safe ls (accs,lp) prev_safe =
     let lp_start = (fun (_,_,_,_,lp) -> lp) (BatOption.get (BatEnum.peek ord_enum)) in
     (* ignore(printf "starting with lockset %a\n" LSSet.pretty lp_start); *)
     match BatEnum.fold check_accs (None, lp_start, false) (Set.backwards accs), prev_safe with
-    | (None, lp,_), _ ->
+    | (None, lp, w), _ ->
       (* ignore(printf "this batch is safe\n"); *)
-      Some lp
+      Some (lp, w)
     | (Some _,_,_), _ ->
       (* ignore(printf "race with %d and %d \n" n m); *)
       None
@@ -476,7 +476,7 @@ let is_all_safe () =
     let safety = PartOptHash.fold check_safe ht None in
     match safety with
     | None -> safe := false
-    | Some n -> ()
+    | Some _ -> ()
   in
   let f ty = LvalOptHash.iter (h ty) in
   TypeHash.iter f accs;
@@ -505,14 +505,14 @@ let print_summary () =
 let print_accesses () =
   let h ty lv ht =
     match PartOptHash.fold check_safe ht None with
-    | Some lp ->
+    | Some (lp, w) ->
       let x =
         lp
         |> LSSet.elements
         |> List.filter (function (l, _) -> l <> "thread")
         |> List.map (fun ls -> (LabeledString.pretty () ls, None))
       in
-      if List.length x > 0 then
+      if w && List.length x > 0 then
         M.msg_group Info "%a" d_memo (ty, lv) x
     | None -> ()
   in
