@@ -463,17 +463,13 @@ let check_safe ls (accs,lp) prev_safe =
     let lp_start = (fun (_,_,_,_,lp) -> lp) (BatOption.get (BatEnum.peek ord_enum)) in
     (* ignore(printf "starting with lockset %a\n" LSSet.pretty lp_start); *)
     match BatEnum.fold check_accs (None, lp_start, false) (Set.backwards accs), prev_safe with
-    | (None, lp, w), _ ->
-      (* ignore(printf "this batch is safe\n"); *)
-      Some (lp, w)
-    | (Some _,_,_), _ ->
-      (* ignore(printf "race with %d and %d \n" n m); *)
-      None
+    | (Some _, _, _), _ | _, None -> None
+    | (None, lp, w), Some l -> Some ((lp, w) :: l)
 
 let is_all_safe () =
   let safe = ref true in
   let h ty lv ht =
-    let safety = PartOptHash.fold check_safe ht None in
+    let safety = PartOptHash.fold check_safe ht (Some []) in
     match safety with
     | None -> safe := false
     | Some _ -> ()
@@ -489,7 +485,7 @@ let print_summary () =
   let unsafe     = ref 0 in
   let h ty lv ht =
     (* ignore(printf "Checking safety of %a:\n" d_memo (ty,lv)); *)
-    let safety = PartOptHash.fold check_safe ht None in
+    let safety = PartOptHash.fold check_safe ht (Some []) in
     match safety with
     | None -> incr unsafe
     | Some _ -> incr safe
@@ -504,15 +500,20 @@ let print_summary () =
 
 let print_accesses () =
   let h ty lv ht =
-    match PartOptHash.fold check_safe ht None with
-    | Some (lp, w) ->
-      let x =
+    match PartOptHash.fold check_safe ht (Some []) with
+    | Some l ->
+      let lp_to_list lp =
         lp
         |> LSSet.elements
         |> List.filter (function (l, _) -> l <> "thread")
         |> List.map (fun ls -> (LabeledString.pretty () ls, None))
       in
-      if w && List.length x > 0 then
+      let x =
+        l
+        |> List.filter (function (_, w) -> w)
+        |> List.concat_map (function (lp, _) -> lp_to_list lp)
+      in
+      if List.length x > 0 then
         M.msg_group Info "%a" d_memo (ty, lv) x
     | None -> ()
   in
