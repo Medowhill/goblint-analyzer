@@ -110,7 +110,7 @@ struct
   } [@@deriving eq, to_yojson]
 
   let should_warn {tags; severity; _} =
-    Tags.should_warn tags && Severity.should_warn severity
+    severity = Severity.Info
 
   let hash {tags; severity; multipiece} =
     3 * Tags.hash tags + 7 * MultiPiece.hash multipiece + 13 * Severity.hash severity

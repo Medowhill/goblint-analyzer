@@ -131,9 +131,12 @@ struct
 
   let printXml f xs =
     let print_one a n (module S : Printable.S) x : unit =
-      BatPrintf.fprintf f "<analysis name=\"%s\">\n" (List.assoc n !analyses_table);
+      let name: string = List.assoc n !analyses_table in
+      if name = "symb_locks" || name = "var_eq" then (
+      BatPrintf.fprintf f "<analysis name=\"%s\">\n" name;
       S.printXml f (obj x);
       BatPrintf.fprintf f "</analysis>\n"
+      )
     in
     unop_fold print_one () xs
 
