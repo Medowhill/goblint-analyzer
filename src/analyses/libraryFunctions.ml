@@ -61,7 +61,7 @@ let classify' fn exps =
     end
   | "_spin_trylock" | "spin_trylock" | "mutex_trylock" | "_spin_trylock_irqsave"
     -> `Lock(true, true, true)
-  | "pthread_mutex_trylock" | "pthread_rwlock_trywrlock"
+  | "pthread_mutex_trylock" | "pthread_rwlock_trywrlock" | "pthread_spin_trylock"
     -> `Lock (true, true, false)
   | "GetSpinlock" -> `Lock (false, true, true)
   | "ReleaseSpinlock" -> `Unlock
@@ -71,7 +71,7 @@ let classify' fn exps =
   | "pthread_rwlock_wrlock" | "GetResource" | "_raw_spin_lock"
   | "_raw_spin_lock_flags" | "_raw_spin_lock_irqsave"
     -> `Lock (get_bool "exp.failing-locks", true, true)
-  | "pthread_mutex_lock" | "__pthread_mutex_lock"
+  | "pthread_mutex_lock" | "__pthread_mutex_lock" | "pthread_spin_lock"
     -> `Lock (get_bool "exp.failing-locks", true, false)
   | "pthread_rwlock_tryrdlock" | "pthread_rwlock_rdlock" | "_read_lock"  | "_raw_read_lock"
   | "down_read"
@@ -80,7 +80,8 @@ let classify' fn exps =
   | "__raw_read_unlock" | "__raw_write_unlock"  | "raw_spin_unlock"
   | "_spin_unlock" | "spin_unlock" | "_spin_unlock_irqrestore" | "_spin_unlock_bh"
   | "mutex_unlock" | "ReleaseResource" | "_write_unlock" | "_read_unlock"
-  | "pthread_mutex_unlock" | "__pthread_mutex_unlock" | "spin_unlock_irqrestore" | "up_read" | "up_write"
+  | "pthread_mutex_unlock" | "__pthread_mutex_unlock" | "spin_unlock_irqrestore"
+  | "up_read" | "up_write" | "pthread_spin_unlock"
     -> `Unlock
   | x -> `Unknown x
 
@@ -180,6 +181,9 @@ let invalidate_actions = ref [
     "pthread_mutex_lock", readsAll;(*safe*)
     "pthread_mutex_trylock", readsAll;
     "pthread_mutex_unlock", readsAll;(*safe*)
+    "pthread_spin_lock", readsAll;(*safe*)
+    "pthread_spin_trylock", readsAll;
+    "pthread_spin_unlock", readsAll;(*safe*)
     "__pthread_mutex_lock", readsAll;(*safe*)
     "__pthread_mutex_trylock", readsAll;
     "__pthread_mutex_unlock", readsAll;(*safe*)
@@ -194,6 +198,8 @@ let invalidate_actions = ref [
     "_spin_unlock_irqrestore", readsAll;(*safe*)
     "pthread_mutex_init", readsAll;(*safe*)
     "pthread_mutex_destroy", readsAll;(*safe*)
+    "pthread_spin_init", readsAll;(*safe*)
+    "pthread_spin_destroy", readsAll;(*safe*)
     "pthread_self", readsAll;(*safe*)
     "read", writes [2];(*keep [2]*)
     "recv", writes [2];(*keep [2]*)

@@ -97,7 +97,8 @@ struct
   ] [@@deriving eq, ord]
 
   let is_mutex_type (t: typ): bool = match t with
-  | TNamed (info, attr) -> info.tname = "pthread_mutex_t" || info.tname = "spinlock_t"
+  | TNamed (info, attr) -> info.tname = "pthread_mutex_t" || info.tname =
+    "spinlock_t" || info.tname = "pthread_spinlock_t"
   | TInt (IInt, attr) -> hasAttribute "mutex" attr
   | _ -> false
 
