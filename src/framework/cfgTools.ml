@@ -520,8 +520,8 @@ struct
 
   let rec p_edges () = function
     | [] -> Pretty.dprintf ""
-    | [(_, x)] -> p_edge () x
-    | (_,x)::xs -> Pretty.dprintf "%a\n%a" p_edge x p_edges xs
+    | [(l, x)] -> Pretty.dprintf "%d" l.line
+    | (l,x)::xs -> Pretty.dprintf "%d,%a" l.line p_edges xs
 
   let printEdgeStyle out (toNode: node) ((edges:(location * edge) list), (fromNode: node)) =
     ignore (Pretty.fprintf out "\t%a -> %a [label = \"%a\"] ;\n" p_node fromNode p_node toNode p_edges edges)
