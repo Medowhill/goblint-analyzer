@@ -81,7 +81,7 @@ let classify' fn exps =
   | "_spin_unlock" | "spin_unlock" | "_spin_unlock_irqrestore" | "_spin_unlock_bh"
   | "mutex_unlock" | "ReleaseResource" | "_write_unlock" | "_read_unlock"
   | "pthread_mutex_unlock" | "__pthread_mutex_unlock" | "spin_unlock_irqrestore"
-  | "up_read" | "up_write" | "pthread_spin_unlock"
+  | "up_read" | "up_write" | "pthread_spin_unlock" | "pthread_rwlock_unlock"
     -> `Unlock
   | x -> `Unknown x
 
